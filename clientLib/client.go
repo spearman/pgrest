@@ -1,14 +1,11 @@
-package main
+package client
 
 import (
   "io/ioutil"
   "log"
   "net/http"
-  json "github.com/goccy/go-json"
-)
-
-import (
   pgrest "pgrest/pgrestLib"
+  json "github.com/goccy/go-json"
 )
 
 type Client struct {
@@ -37,15 +34,4 @@ func (client *Client) Dt() ([]pgrest.Table, error) {
     return nil, err
   }
   return tables, err
-}
-
-func main() {
-  log.Println("main...")
-  client := MakeClient("http://127.0.0.1:12345")
-  tables, err := client.Dt()
-  if err != nil {
-    log.Fatal(err)
-  }
-  log.Printf("dt: %+v\n", tables)
-  log.Println("...main")
 }

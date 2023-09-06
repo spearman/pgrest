@@ -1,4 +1,4 @@
-module github.com/spearman/pgrest/clientApp
+module pgrest/clientLib
 
 go 1.20
 

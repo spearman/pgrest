@@ -1,4 +1,4 @@
-module pgserver/pgserverLib
+module pgrest/pgrestLib
 
 go 1.20
 

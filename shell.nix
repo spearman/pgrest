@@ -3,5 +3,6 @@ mkShell {
   buildInputs = [
     go
     gopls
+    gotools
   ];
 }

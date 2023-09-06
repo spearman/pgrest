@@ -1,4 +1,4 @@
-package pgserverLib
+package pgrest
 
 import (
   //"log"
