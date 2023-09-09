@@ -35,3 +35,21 @@ func (client *Client) Dt() ([]pgrest.Table, error) {
   }
   return tables, err
 }
+
+func (client *Client) Ds() ([]pgrest.Schema, error) {
+  resp, err := client.client.Get(client.url + "/ds")
+  log.Printf("resp: %+v\n", resp)
+  defer resp.Body.Close()
+  body, err := ioutil.ReadAll(resp.Body)
+  if err != nil {
+    log.Println("error reading response:", err)
+    return nil, err
+  }
+  var schemas []pgrest.Schema
+  err = json.Unmarshal(body, &schemas)
+  if err!= nil {
+    log.Println("error converting json to schemas:", err)
+    return nil, err
+  }
+  return schemas, err
+}

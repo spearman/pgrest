@@ -62,6 +62,26 @@ func (server *PgServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       tables_string := string(s)
       fmt.Fprintln(w, tables_string)
 
+    case "/ds":
+      var schemas []*pgrest.Schema
+      err := pgxscan.Select(server.ctx, server.conn, &schemas,
+        "SELECT * FROM information_schema.schemata")
+      if err != nil {
+        log.Println("error getting schemas:", err)
+        http.Error(w, fmt.Sprintf("error getting schemas: %+v\n", err),
+          http.StatusInternalServerError)
+        return
+      }
+      s, err := json.Marshal(schemas)
+      if err != nil {
+        log.Println("error converting schemas to json:", err)
+        http.Error(w, fmt.Sprintf("error converting schemas to json: %+v\n", err),
+          http.StatusInternalServerError)
+        return
+      }
+      tables_string := string(s)
+      fmt.Fprintln(w, tables_string)
+
     default:
       http.Error(w, "Invalid request URL", http.StatusBadRequest)
   }
