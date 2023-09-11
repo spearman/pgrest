@@ -16,10 +16,10 @@ func main() {
     log.Fatal(err)
   }
   log.Printf("dt: %+v\n", tables)
-  schemas, err := client.Ds()
+  schemas, err := client.Dn()
   if err != nil {
     log.Fatal(err)
   }
-  log.Printf("dt: %+v\n", schemas)
+  log.Printf("dn: %+v\n", schemas)
   log.Println("...main")
 }

@@ -36,8 +36,8 @@ func (client *Client) Dt() ([]pgrest.Table, error) {
   return tables, err
 }
 
-func (client *Client) Ds() ([]pgrest.Schema, error) {
-  resp, err := client.client.Get(client.url + "/ds")
+func (client *Client) Dn() ([]pgrest.Schema, error) {
+  resp, err := client.client.Get(client.url + "/dn")
   log.Printf("resp: %+v\n", resp)
   defer resp.Body.Close()
   body, err := ioutil.ReadAll(resp.Body)
@@ -53,3 +53,9 @@ func (client *Client) Ds() ([]pgrest.Schema, error) {
   }
   return schemas, err
 }
+
+/* TODO: information_schema.routines does not contain argument data types; there
+* are more complicated queries involving pg_catalog
+func (client *Client) Df() ([]pgrest.Function, error) {
+}
+*/
