@@ -23,7 +23,7 @@ type PgServer struct {
   ctx   context.Context
 }
 
-func MakeServer (connString string) (PgServer, error) {
+func MakeServer(connString string) (PgServer, error) {
   cfg, err := pgx.ParseConfig(connString)
   if err != nil {
     log.Println("error parsing pg connection string:", err)
@@ -42,10 +42,9 @@ func (server *PgServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   log.Printf("received: %+v\n", r)
   log.Printf("URL: %v\n", r.URL)
   switch r.URL.Path {
-    case "/dt":
-      server.dt(w, r)
-    case "/dn":
-      server.dn(w, r)
+    case "/dt": server.dt(w, r)
+    case "/dn": server.dn(w, r)
+    case "/df": server.df(w, r)
     default:
       http.Error(w, "Invalid request URL", http.StatusBadRequest)
   }
@@ -86,6 +85,27 @@ func (server *PgServer) dn(w http.ResponseWriter, r *http.Request) {
   if err != nil {
     log.Println("error converting schemas to json:", err)
     http.Error(w, fmt.Sprintf("error converting schemas to json: %+v\n", err),
+      http.StatusInternalServerError)
+    return
+  }
+  tables_string := string(s)
+  fmt.Fprintln(w, tables_string)
+}
+
+func (server *PgServer) df(w http.ResponseWriter, r *http.Request) {
+  var functions []*pgrest.Function
+  err := pgxscan.Select(server.ctx, server.conn, &functions,
+    "SELECT specific_schema, specific_name, type_udt_name FROM information_schema.routines WHERE specific_schema = 'public'")
+  if err != nil {
+    log.Println("error getting functions:", err)
+    http.Error(w, fmt.Sprintf("error getting functions: %+v\n", err),
+      http.StatusInternalServerError)
+    return
+  }
+  s, err := json.Marshal(functions)
+  if err != nil {
+    log.Println("error converting functions to json:", err)
+    http.Error(w, fmt.Sprintf("error converting functions to json: %+v\n", err),
       http.StatusInternalServerError)
     return
   }

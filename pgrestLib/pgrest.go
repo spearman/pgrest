@@ -14,3 +14,7 @@ type Schema struct {
   Catalog_name, Schema_name, Schema_owner, Default_character_set_catalog,
   Default_character_set_schema, Default_character_set_name, Sql_path pgtype.Text
 }
+
+type Function struct {
+  Specific_schema, Specific_name, Type_udt_name pgtype.Text
+}

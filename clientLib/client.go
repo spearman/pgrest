@@ -54,8 +54,20 @@ func (client *Client) Dn() ([]pgrest.Schema, error) {
   return schemas, err
 }
 
-/* TODO: information_schema.routines does not contain argument data types; there
-* are more complicated queries involving pg_catalog
 func (client *Client) Df() ([]pgrest.Function, error) {
+  resp, err := client.client.Get(client.url + "/df")
+  log.Printf("resp: %+v\n", resp)
+  defer resp.Body.Close()
+  body, err := ioutil.ReadAll(resp.Body)
+  if err != nil {
+    log.Println("error reading response:", err)
+    return nil, err
+  }
+  var functions []pgrest.Function
+  err = json.Unmarshal(body, &functions)
+  if err!= nil {
+    log.Println("error converting json to functions:", err)
+    return nil, err
+  }
+  return functions, err
 }
-*/
