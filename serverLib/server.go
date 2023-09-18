@@ -3,6 +3,7 @@ package server
 import (
   "context"
   "fmt"
+  "io/ioutil"
   "log"
   "net/http"
 )
@@ -45,6 +46,8 @@ func (server *PgServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     case "/dt": server.dt(w, r)
     case "/dn": server.dn(w, r)
     case "/df": server.df(w, r)
+    case "/d": server.d(w, r)
+    case "/idx": server.idx(w, r)
     default:
       http.Error(w, "Invalid request URL", http.StatusBadRequest)
   }
@@ -109,6 +112,76 @@ func (server *PgServer) df(w http.ResponseWriter, r *http.Request) {
       http.StatusInternalServerError)
     return
   }
-  tables_string := string(s)
-  fmt.Fprintln(w, tables_string)
+  functions_string := string(s)
+  fmt.Fprintln(w, functions_string)
+}
+
+func (server *PgServer) d(w http.ResponseWriter, r *http.Request) {
+  var columns []*pgrest.Column
+  body, err := ioutil.ReadAll(r.Body)
+  if err != nil {
+    http.Error(w, "error reading request body", http.StatusInternalServerError)
+    return
+  }
+  defer r.Body.Close()
+  var req_table pgrest.ReqTable
+  err = json.Unmarshal(body, &req_table)
+  if err != nil {
+    http.Error(w, fmt.Sprintf("error unmarshaling table req: %+v\n", err),
+      http.StatusInternalServerError)
+    return
+  }
+  query := fmt.Sprintf("SELECT column_name, data_type, collation_name, is_nullable, column_default FROM information_schema.columns WHERE table_name = '%s'",
+    req_table.TableName)
+  err = pgxscan.Select(server.ctx, server.conn, &columns, query)
+  if err != nil {
+    log.Println("error getting columns:", err)
+    http.Error(w, fmt.Sprintf("error getting columns: %+v\n", err),
+      http.StatusInternalServerError)
+    return
+  }
+  cols, err := json.Marshal(columns)
+  if err != nil {
+    log.Println("error converting columns to json:", err)
+    http.Error(w, fmt.Sprintf("error converting columns to json: %+v\n", err),
+      http.StatusInternalServerError)
+    return
+  }
+  columns_string := string(cols)
+  fmt.Fprintln(w, columns_string)
+}
+
+func (server *PgServer) idx(w http.ResponseWriter, r *http.Request) {
+  var indexes []*pgrest.Index
+  body, err := ioutil.ReadAll(r.Body)
+  if err != nil {
+    http.Error(w, "error reading request body", http.StatusInternalServerError)
+    return
+  }
+  defer r.Body.Close()
+  var req_table pgrest.ReqTable
+  err = json.Unmarshal(body, &req_table)
+  if err != nil {
+    http.Error(w, fmt.Sprintf("error unmarshaling table req: %+v\n", err),
+      http.StatusInternalServerError)
+    return
+  }
+  query := fmt.Sprintf("SELECT * FROM pg_indexes WHERE tablename = '%s'",
+    req_table.TableName)
+  err = pgxscan.Select(server.ctx, server.conn, &indexes, query)
+  if err != nil {
+    log.Println("error getting indexes:", err)
+    http.Error(w, fmt.Sprintf("error getting indexes: %+v\n", err),
+      http.StatusInternalServerError)
+    return
+  }
+  idxs, err := json.Marshal(indexes)
+  if err != nil {
+    log.Println("error converting indexes to json:", err)
+    http.Error(w, fmt.Sprintf("error converting indexes to json: %+v\n", err),
+      http.StatusInternalServerError)
+    return
+  }
+  indexes_string := string(idxs)
+  fmt.Fprintln(w, indexes_string)
 }

@@ -30,5 +30,17 @@ func main() {
   }
   log.Printf("df: %+v\n", functions)
 
+  columns, err := client.D("document")
+  if err != nil {
+    log.Fatal(err)
+  }
+  log.Printf("d: %+v\n", columns)
+
+  indexes, err := client.Idx("document")
+  if err != nil {
+    log.Fatal(err)
+  }
+  log.Printf("idx: %+v\n", indexes)
+
   log.Println("...main")
 }
