@@ -48,6 +48,7 @@ func (server *PgServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     case "/df": server.df(w, r)
     case "/d": server.d(w, r)
     case "/idx": server.idx(w, r)
+    case "/create": server.create(w, r)
     default:
       http.Error(w, "Invalid request URL", http.StatusBadRequest)
   }
@@ -116,6 +117,7 @@ func (server *PgServer) df(w http.ResponseWriter, r *http.Request) {
   fmt.Fprintln(w, functions_string)
 }
 
+// TODO: this query does not find the requested table
 func (server *PgServer) d(w http.ResponseWriter, r *http.Request) {
   var columns []*pgrest.Column
   body, err := ioutil.ReadAll(r.Body)
@@ -184,4 +186,65 @@ func (server *PgServer) idx(w http.ResponseWriter, r *http.Request) {
   }
   indexes_string := string(idxs)
   fmt.Fprintln(w, indexes_string)
+}
+
+func (server *PgServer) create(w http.ResponseWriter, r *http.Request) {
+  body, err := ioutil.ReadAll(r.Body)
+  if err != nil {
+    http.Error(w, "error reading request body", http.StatusInternalServerError)
+    return
+  }
+  defer r.Body.Close()
+  var req_table pgrest.ReqTable
+  err = json.Unmarshal(body, &req_table)
+  if err != nil {
+    http.Error(w, fmt.Sprintf("error unmarshaling table req: %+v\n", err),
+      http.StatusInternalServerError)
+    return
+  }
+  tx, err := server.conn.Begin(server.ctx)
+  if err != nil {
+    http.Error(w, fmt.Sprintf("error beginning transaction: %+v\n", err),
+      http.StatusInternalServerError)
+    return
+  }
+  defer tx.Rollback(server.ctx)
+  res, err := tx.Exec(server.ctx,
+    fmt.Sprintf("CREATE TABLE \"%s\"()", req_table.TableName))
+  if err != nil {
+    err_string := err.Error()
+    result := pgrest.Result {
+      Error: &err_string,
+    }
+    result_json, err := json.Marshal(result)
+    if err != nil {
+      log.Println("error converting result to json:", err)
+      http.Error(w, fmt.Sprintf("error converting result to json: %+v\n", err),
+        http.StatusInternalServerError)
+      return
+    }
+    result_string := string(result_json)
+    http.Error(w, fmt.Sprintf("%s", result_string),
+      http.StatusInternalServerError)
+    return
+  }
+  err = tx.Commit(server.ctx)
+  if err != nil {
+    http.Error(w, fmt.Sprintf("error committing transaction: %+v\n", err),
+      http.StatusInternalServerError)
+    return
+  }
+  res_string := res.String()
+  result := pgrest.Result {
+    Success: &res_string,
+  }
+  result_json, err := json.Marshal(result)
+  if err != nil {
+    log.Println("error converting result to json:", err)
+    http.Error(w, fmt.Sprintf("error converting result to json: %+v\n", err),
+      http.StatusInternalServerError)
+    return
+  }
+  result_string := string(result_json)
+  fmt.Fprintln(w, result_string)
 }

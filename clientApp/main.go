@@ -42,5 +42,11 @@ func main() {
   }
   log.Printf("idx: %+v\n", indexes)
 
+  res, err := client.Create("foo")
+  if err != nil {
+    log.Fatal(err)
+  }
+  log.Printf("create: %+v\n", res)
+
   log.Println("...main")
 }

@@ -152,3 +152,32 @@ func (client *Client) Idx(table_name string) ([]pgrest.Index, error) {
   }
   return indexes, err
 }
+
+func (client *Client) Create(table_name string) (*pgrest.Result, error) {
+  req_table := pgrest.ReqTable { TableName: table_name }
+  body_json, err := json.Marshal(req_table)
+  if err != nil {
+    log.Println("error marshaling body:", err)
+    return nil, err
+  }
+  req_body := bytes.NewReader(body_json)
+  resp, err := http.Post(client.url + "/create", "", req_body)
+  if err != nil {
+    log.Println("error sending request:", err)
+    return nil, err
+  }
+  log.Printf("resp: %+v\n", resp)
+  defer resp.Body.Close()
+  body, err := ioutil.ReadAll(resp.Body)
+  if err != nil {
+    log.Println("error reading response:", err)
+    return nil, err
+  }
+  var result pgrest.Result
+  err = json.Unmarshal(body, &result)
+  if err!= nil {
+    log.Println("error converting json to result:", err)
+    return nil, err
+  }
+  return &result, err
+}

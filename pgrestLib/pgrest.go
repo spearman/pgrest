@@ -1,6 +1,7 @@
 package pgrest
 
 import (
+  "fmt"
   //"log"
   "github.com/jackc/pgx/v5/pgtype"
 )
@@ -28,6 +29,28 @@ type Column struct {
 type Index struct {
   Schemaname, Tablename, Indexname, Tablespace, Indexdef pgtype.Text
 }
+
+type Result struct {
+  Success *string
+  Error   *string
+}
+
+func (res *Result) String() string {
+  var success string
+  if res.Success != nil {
+    success = *res.Success
+  } else {
+    success = "nil"
+  }
+  var err string
+  if res.Error != nil {
+    err = *res.Error
+  } else {
+    err = "nil"
+  }
+  return fmt.Sprintf("{Success:%s Error:%s}", success, err)
+}
+
 
 // client -> server
 
