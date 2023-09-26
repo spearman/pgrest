@@ -30,6 +30,10 @@ type Index struct {
   Schemaname, Tablename, Indexname, Tablespace, Indexdef pgtype.Text
 }
 
+type DataType struct {
+  Data_type pgtype.Text
+}
+
 type Result struct {
   Success *string
   Error   *string
@@ -56,4 +60,15 @@ func (res *Result) String() string {
 
 type ReqTable struct {
   TableName string
+}
+
+type ReqColumn struct {
+  TableName  string
+  ColumnName string
+}
+
+type CreateIndex struct {
+  TableName  string
+  IndexName  string
+  ColumnName string
 }

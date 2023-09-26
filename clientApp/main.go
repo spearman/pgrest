@@ -36,17 +36,33 @@ func main() {
   }
   log.Printf("d: %+v\n", columns)
 
+  data_type, err := client.Dc("foo", "mycol")
+  if err != nil {
+    log.Fatal(err)
+  }
+  log.Printf("dc: %+v\n", data_type)
+
   indexes, err := client.Idx("document")
   if err != nil {
     log.Fatal(err)
   }
   log.Printf("idx: %+v\n", indexes)
 
-  res, err := client.Create("foo")
-  if err != nil {
-    log.Fatal(err)
+  {
+    res, err := client.Create("foo")
+    if err != nil {
+      log.Fatal(err)
+    }
+    log.Printf("create: %+v\n", res)
   }
-  log.Printf("create: %+v\n", res)
+
+  {
+    res, err := client.CreateIndex("myindex", "foo", "mycol")
+    if err != nil {
+      log.Fatal(err)
+    }
+    log.Printf("create index: %+v\n", res)
+  }
 
   log.Println("...main")
 }

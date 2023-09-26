@@ -47,8 +47,10 @@ func (server *PgServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     case "/dn": server.dn(w, r)
     case "/df": server.df(w, r)
     case "/d": server.d(w, r)
+    case "/dc": server.dc(w, r)
     case "/idx": server.idx(w, r)
     case "/create": server.create(w, r)
+    case "/createIndex": server.createIndex(w, r)
     default:
       http.Error(w, "Invalid request URL", http.StatusBadRequest)
   }
@@ -153,6 +155,54 @@ func (server *PgServer) d(w http.ResponseWriter, r *http.Request) {
   fmt.Fprintln(w, columns_string)
 }
 
+func (server *PgServer) dc(w http.ResponseWriter, r *http.Request) {
+  var data_type []*pgrest.DataType
+  body, err := ioutil.ReadAll(r.Body)
+  if err != nil {
+    http.Error(w, "error reading request body", http.StatusInternalServerError)
+    return
+  }
+  defer r.Body.Close()
+  var req_col pgrest.ReqColumn
+  err = json.Unmarshal(body, &req_col)
+  if err != nil {
+    http.Error(w, fmt.Sprintf("error unmarshaling table req: %+v\n", err),
+      http.StatusInternalServerError)
+    return
+  }
+  query := fmt.Sprintf("SELECT data_type FROM information_schema.columns WHERE table_name = '%s' AND column_name = '%s'",
+    req_col.TableName, req_col.ColumnName)
+  err = pgxscan.Select(server.ctx, server.conn, &data_type, query)
+  if err != nil {
+    log.Println("error getting column data type:", err)
+    http.Error(w, fmt.Sprintf("error getting column data type: %+v\n", err),
+      http.StatusInternalServerError)
+    return
+  }
+  if len(data_type) == 0 {
+    log.Println("error column not found")
+    http.Error(w, fmt.Sprintf("error no such column"),
+      http.StatusInternalServerError)
+    return
+  }
+  if len(data_type) > 1 {
+    log.Println("error got multiple columns")
+    http.Error(w, fmt.Sprintf("error matched multiple columns: %+v\n", data_type),
+      http.StatusInternalServerError)
+    return
+  }
+  dt, err := json.Marshal(data_type[0])
+  if err != nil {
+    log.Println("error converting column data type to json:", err)
+    http.Error(w,
+      fmt.Sprintf("error converting column data type to json: %+v\n", err),
+      http.StatusInternalServerError)
+    return
+  }
+  data_type_string := string(dt)
+  fmt.Fprintln(w, data_type_string)
+}
+
 func (server *PgServer) idx(w http.ResponseWriter, r *http.Request) {
   var indexes []*pgrest.Index
   body, err := ioutil.ReadAll(r.Body)
@@ -211,6 +261,68 @@ func (server *PgServer) create(w http.ResponseWriter, r *http.Request) {
   defer tx.Rollback(server.ctx)
   res, err := tx.Exec(server.ctx,
     fmt.Sprintf("CREATE TABLE \"%s\"()", req_table.TableName))
+  if err != nil {
+    err_string := err.Error()
+    result := pgrest.Result {
+      Error: &err_string,
+    }
+    result_json, err := json.Marshal(result)
+    if err != nil {
+      log.Println("error converting result to json:", err)
+      http.Error(w, fmt.Sprintf("error converting result to json: %+v\n", err),
+        http.StatusInternalServerError)
+      return
+    }
+    result_string := string(result_json)
+    http.Error(w, fmt.Sprintf("%s", result_string),
+      http.StatusInternalServerError)
+    return
+  }
+  err = tx.Commit(server.ctx)
+  if err != nil {
+    http.Error(w, fmt.Sprintf("error committing transaction: %+v\n", err),
+      http.StatusInternalServerError)
+    return
+  }
+  res_string := res.String()
+  result := pgrest.Result {
+    Success: &res_string,
+  }
+  result_json, err := json.Marshal(result)
+  if err != nil {
+    log.Println("error converting result to json:", err)
+    http.Error(w, fmt.Sprintf("error converting result to json: %+v\n", err),
+      http.StatusInternalServerError)
+    return
+  }
+  result_string := string(result_json)
+  fmt.Fprintln(w, result_string)
+}
+
+func (server *PgServer) createIndex(w http.ResponseWriter, r *http.Request) {
+  body, err := ioutil.ReadAll(r.Body)
+  if err != nil {
+    http.Error(w, "error reading request body", http.StatusInternalServerError)
+    return
+  }
+  defer r.Body.Close()
+  var cre_idx pgrest.CreateIndex
+  err = json.Unmarshal(body, &cre_idx)
+  if err != nil {
+    http.Error(w, fmt.Sprintf("error unmarshaling create index req: %+v\n", err),
+      http.StatusInternalServerError)
+    return
+  }
+  tx, err := server.conn.Begin(server.ctx)
+  if err != nil {
+    http.Error(w, fmt.Sprintf("error beginning transaction: %+v\n", err),
+      http.StatusInternalServerError)
+    return
+  }
+  defer tx.Rollback(server.ctx)
+  res, err := tx.Exec(server.ctx,
+    fmt.Sprintf("CREATE INDEX \"%s\" ON \"%s\" (\"%s\")", cre_idx.IndexName,
+      cre_idx.TableName, cre_idx.ColumnName))
   if err != nil {
     err_string := err.Error()
     result := pgrest.Result {
