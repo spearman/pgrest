@@ -74,12 +74,7 @@ func (server *PgServer) dt(w http.ResponseWriter, r *http.Request) {
   if check_err(w, err, "getting tables") {
     return
   }
-  s, err := json.Marshal(tables)
-  if check_err(w, err, "converting tables to json") {
-    return
-  }
-  tables_string := string(s)
-  fmt.Fprintln(w, tables_string)
+  send_json(w, tables, "tables")
 }
 
 func (server *PgServer) dn(w http.ResponseWriter, r *http.Request) {
@@ -89,12 +84,7 @@ func (server *PgServer) dn(w http.ResponseWriter, r *http.Request) {
   if check_err(w, err, "getting schemas") {
     return
   }
-  s, err := json.Marshal(schemas)
-  if check_err(w, err, "converting schemas to json") {
-    return
-  }
-  tables_string := string(s)
-  fmt.Fprintln(w, tables_string)
+  send_json(w, schemas, "schemas")
 }
 
 func (server *PgServer) df(w http.ResponseWriter, r *http.Request) {
@@ -104,16 +94,10 @@ func (server *PgServer) df(w http.ResponseWriter, r *http.Request) {
   if check_err(w, err, "getting functions") {
     return
   }
-  s, err := json.Marshal(functions)
-  if check_err(w, err, "converting functions to json") {
-    return
-  }
-  functions_string := string(s)
-  fmt.Fprintln(w, functions_string)
+  send_json(w, functions, "functions")
 }
 
 func (server *PgServer) d(w http.ResponseWriter, r *http.Request) {
-  var columns []*pgrest.Column
   body, err := ioutil.ReadAll(r.Body)
   if check_err(w, err, "reading request body") {
     return
@@ -124,22 +108,17 @@ func (server *PgServer) d(w http.ResponseWriter, r *http.Request) {
   if check_err(w, err, "unmarshaling table req") {
     return
   }
+  var columns []*pgrest.Column
   query := fmt.Sprintf("SELECT column_name, data_type, collation_name, is_nullable, column_default FROM information_schema.columns WHERE table_name = '%s'",
     req_table.TableName)
   err = pgxscan.Select(server.ctx, server.conn, &columns, query)
   if check_err(w, err, "getting columns") {
     return
   }
-  cols, err := json.Marshal(columns)
-  if check_err(w, err, "converting columns to json") {
-    return
-  }
-  columns_string := string(cols)
-  fmt.Fprintln(w, columns_string)
+  send_json(w, columns, "columns")
 }
 
 func (server *PgServer) dc(w http.ResponseWriter, r *http.Request) {
-  var data_type []*pgrest.DataType
   body, err := ioutil.ReadAll(r.Body)
   if check_err(w, err, "reading request body") {
     return
@@ -150,6 +129,7 @@ func (server *PgServer) dc(w http.ResponseWriter, r *http.Request) {
   if check_err(w, err, "unmarshaling table req") {
     return
   }
+  var data_type []*pgrest.DataType
   query := fmt.Sprintf("SELECT data_type FROM information_schema.columns WHERE table_name = '%s' AND column_name = '%s'",
     req_col.TableName, req_col.ColumnName)
   err = pgxscan.Select(server.ctx, server.conn, &data_type, query)
@@ -168,16 +148,10 @@ func (server *PgServer) dc(w http.ResponseWriter, r *http.Request) {
       http.StatusInternalServerError)
     return
   }
-  dt, err := json.Marshal(data_type[0])
-  if check_err(w, err, "converting column data type to json") {
-    return
-  }
-  data_type_string := string(dt)
-  fmt.Fprintln(w, data_type_string)
+  send_json(w, data_type[0], "data type")
 }
 
 func (server *PgServer) idx(w http.ResponseWriter, r *http.Request) {
-  var indexes []*pgrest.Index
   body, err := ioutil.ReadAll(r.Body)
   if check_err(w, err, "reading request body") {
     return
@@ -188,18 +162,14 @@ func (server *PgServer) idx(w http.ResponseWriter, r *http.Request) {
   if check_err(w, err, "unmarshaling table req") {
     return
   }
+  var indexes []*pgrest.Index
   query := fmt.Sprintf("SELECT * FROM pg_indexes WHERE tablename = '%s'",
     req_table.TableName)
   err = pgxscan.Select(server.ctx, server.conn, &indexes, query)
   if check_err(w, err, "getting indexes") {
     return
   }
-  idxs, err := json.Marshal(indexes)
-  if check_err(w, err, "converting indexes to json") {
-    return
-  }
-  indexes_string := string(idxs)
-  fmt.Fprintln(w, indexes_string)
+  send_json(w, indexes, "indexes")
 }
 
 func (server *PgServer) create(w http.ResponseWriter, r *http.Request) {
@@ -225,13 +195,7 @@ func (server *PgServer) create(w http.ResponseWriter, r *http.Request) {
     result := pgrest.Result {
       Error: &err_string,
     }
-    result_json, err := json.Marshal(result)
-    if check_err(w, err, "converting result to json") {
-      return
-    }
-    result_string := string(result_json)
-    http.Error(w, fmt.Sprintf("%s", result_string),
-      http.StatusInternalServerError)
+    send_json_err(w, result, "result")
     return
   }
   err = tx.Commit(server.ctx)
@@ -242,12 +206,7 @@ func (server *PgServer) create(w http.ResponseWriter, r *http.Request) {
   result := pgrest.Result {
     Success: &res_string,
   }
-  result_json, err := json.Marshal(result)
-  if check_err(w, err, "converting result to json") {
-    return
-  }
-  result_string := string(result_json)
-  fmt.Fprintln(w, result_string)
+  send_json(w, result, "result")
 }
 
 func (server *PgServer) createIndex(w http.ResponseWriter, r *http.Request) {
@@ -274,13 +233,7 @@ func (server *PgServer) createIndex(w http.ResponseWriter, r *http.Request) {
     result := pgrest.Result {
       Error: &err_string,
     }
-    result_json, err := json.Marshal(result)
-    if check_err(w, err, "converting result to json") {
-      return
-    }
-    result_string := string(result_json)
-    http.Error(w, fmt.Sprintf("%s", result_string),
-      http.StatusInternalServerError)
+    send_json_err(w, result, "result")
     return
   }
   err = tx.Commit(server.ctx)
@@ -291,12 +244,7 @@ func (server *PgServer) createIndex(w http.ResponseWriter, r *http.Request) {
   result := pgrest.Result {
     Success: &res_string,
   }
-  result_json, err := json.Marshal(result)
-  if check_err(w, err, "converting result to json") {
-    return
-  }
-  result_string := string(result_json)
-  fmt.Fprintln(w, result_string)
+  send_json(w, result, "result")
 }
 
 func (server *PgServer) read(w http.ResponseWriter, r *http.Request) {
@@ -335,13 +283,7 @@ func (server *PgServer) insert(w http.ResponseWriter, r *http.Request) {
     result := pgrest.Result {
       Error: &err_string,
     }
-    result_json, err := json.Marshal(result)
-    if check_err(w, err, "converting result to json") {
-      return
-    }
-    result_string := string(result_json)
-    http.Error(w, fmt.Sprintf("%s", result_string),
-      http.StatusInternalServerError)
+    send_json_err(w, result, "result")
     return
   }
   err = tx.Commit(server.ctx)
@@ -352,12 +294,7 @@ func (server *PgServer) insert(w http.ResponseWriter, r *http.Request) {
   result := pgrest.Result {
     Success: &res_string,
   }
-  result_json, err := json.Marshal(result)
-  if check_err(w, err, "converting result to json") {
-    return
-  }
-  result_string := string(result_json)
-  fmt.Fprintln(w, result_string)
+  send_json(w, result, "result")
 }
 
 func (server *PgServer) upsert(w http.ResponseWriter, r *http.Request) {
@@ -401,4 +338,20 @@ func check_err(w http.ResponseWriter, err error, msg string) bool {
   } else {
     return false
   }
+}
+
+func send_json(w http.ResponseWriter, v interface{}, name string) {
+  s, err := json.Marshal(v)
+  if check_err(w, err, fmt.Sprintf("converting %s to json", name)) {
+    return
+  }
+  fmt.Fprintln(w, string(s))
+}
+
+func send_json_err(w http.ResponseWriter, v interface{}, name string) {
+  s, err := json.Marshal(v)
+  if check_err(w, err, fmt.Sprintf("converting %s to json", name)) {
+    return
+  }
+  http.Error(w, fmt.Sprintf("%s", string(s)), http.StatusInternalServerError)
 }
