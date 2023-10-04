@@ -6,6 +6,7 @@ import (
   "io/ioutil"
   "log"
   "net/http"
+  "strings"
 )
 
 import (
@@ -51,6 +52,16 @@ func (server *PgServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     case "/idx": server.idx(w, r)
     case "/create": server.create(w, r)
     case "/createIndex": server.createIndex(w, r)
+    case "/read": server.read(w, r)
+    case "/insert": server.insert(w, r)
+    case "/upsert": server.upsert(w, r)
+    case "/delete": server.delete(w, r)
+    case "/priv": server.priv(w, r)
+    case "/execSql": server.execSql(w, r)
+    case "/exec": server.exec(w, r)
+    case "/own": server.own(w, r)
+    case "/du": server.du(w, r)
+    case "/add": server.add(w, r)
     default:
       http.Error(w, "Invalid request URL", http.StatusBadRequest)
   }
@@ -119,7 +130,6 @@ func (server *PgServer) df(w http.ResponseWriter, r *http.Request) {
   fmt.Fprintln(w, functions_string)
 }
 
-// TODO: this query does not find the requested table
 func (server *PgServer) d(w http.ResponseWriter, r *http.Request) {
   var columns []*pgrest.Column
   body, err := ioutil.ReadAll(r.Body)
@@ -359,4 +369,110 @@ func (server *PgServer) createIndex(w http.ResponseWriter, r *http.Request) {
   }
   result_string := string(result_json)
   fmt.Fprintln(w, result_string)
+}
+
+func (server *PgServer) read(w http.ResponseWriter, r *http.Request) {
+  log.Fatalln("TODO: read")
+}
+
+func (server *PgServer) insert(w http.ResponseWriter, r *http.Request) {
+  body, err := ioutil.ReadAll(r.Body)
+  if err != nil {
+    http.Error(w, "error reading request body", http.StatusInternalServerError)
+    return
+  }
+  defer r.Body.Close()
+  var insert pgrest.Insert
+  err = json.Unmarshal(body, &insert)
+  if err != nil {
+    http.Error(w, fmt.Sprintf("error unmarshaling insert: %+v\n", err),
+      http.StatusInternalServerError)
+    return
+  }
+  tx, err := server.conn.Begin(server.ctx)
+  if err != nil {
+    http.Error(w, fmt.Sprintf("error beginning transaction: %+v\n", err),
+      http.StatusInternalServerError)
+    return
+  }
+  defer tx.Rollback(server.ctx)
+  var cols []string
+  var vals []string
+  for _, col_val := range insert.Values {
+    cols = append(cols, "\"" + col_val.ColumnName + "\"")
+    vals = append(vals, col_val.Value)
+  }
+  cols_string := strings.Join(cols, ",")
+  vals_string := strings.Join(vals, ",")
+  res, err := tx.Exec(server.ctx,
+    fmt.Sprintf("INSERT INTO \"%s\" (%s) VALUES (%s)", insert.TableName,
+      cols_string, vals_string))
+  if err != nil {
+    err_string := err.Error()
+    result := pgrest.Result {
+      Error: &err_string,
+    }
+    result_json, err := json.Marshal(result)
+    if err != nil {
+      log.Println("error converting result to json:", err)
+      http.Error(w, fmt.Sprintf("error converting result to json: %+v\n", err),
+        http.StatusInternalServerError)
+      return
+    }
+    result_string := string(result_json)
+    http.Error(w, fmt.Sprintf("%s", result_string),
+      http.StatusInternalServerError)
+    return
+  }
+  err = tx.Commit(server.ctx)
+  if err != nil {
+    http.Error(w, fmt.Sprintf("error committing transaction: %+v\n", err),
+      http.StatusInternalServerError)
+    return
+  }
+  res_string := res.String()
+  result := pgrest.Result {
+    Success: &res_string,
+  }
+  result_json, err := json.Marshal(result)
+  if err != nil {
+    log.Println("error converting result to json:", err)
+    http.Error(w, fmt.Sprintf("error converting result to json: %+v\n", err),
+      http.StatusInternalServerError)
+    return
+  }
+  result_string := string(result_json)
+  fmt.Fprintln(w, result_string)
+}
+
+func (server *PgServer) upsert(w http.ResponseWriter, r *http.Request) {
+  log.Fatalln("TODO: upsert")
+}
+
+func (server *PgServer) delete(w http.ResponseWriter, r *http.Request) {
+  log.Fatalln("TODO: delete")
+}
+
+func (server *PgServer) priv(w http.ResponseWriter, r *http.Request) {
+  log.Fatalln("TODO: priv")
+}
+
+func (server *PgServer) execSql(w http.ResponseWriter, r *http.Request) {
+  log.Fatalln("TODO: execSql")
+}
+
+func (server *PgServer) exec(w http.ResponseWriter, r *http.Request) {
+  log.Fatalln("TODO: exec")
+}
+
+func (server *PgServer) own(w http.ResponseWriter, r *http.Request) {
+  log.Fatalln("TODO: own")
+}
+
+func (server *PgServer) du(w http.ResponseWriter, r *http.Request) {
+  log.Fatalln("TODO: du")
+}
+
+func (server *PgServer) add(w http.ResponseWriter, r *http.Request) {
+  log.Fatalln("TODO: add")
 }

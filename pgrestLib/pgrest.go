@@ -72,3 +72,13 @@ type CreateIndex struct {
   IndexName  string
   ColumnName string
 }
+
+type Insert struct {
+  TableName string
+  Values    []ColVal
+}
+
+type ColVal struct {
+  ColumnName string
+  Value      string
+}

@@ -6,6 +6,7 @@ import (
 
 import (
   "pgrest/clientLib"
+  "pgrest/pgrestLib"
 )
 
 func main() {
@@ -62,6 +63,17 @@ func main() {
       log.Fatal(err)
     }
     log.Printf("create index: %+v\n", res)
+  }
+
+  {
+    var col_vals []pgrest.ColVal
+    col_vals = append(col_vals, pgrest.ColVal { ColumnName: "mycol", Value: "99" })
+    col_vals = append(col_vals, pgrest.ColVal { ColumnName: "mycol2", Value: "98" })
+    res, err := client.Insert("foo", col_vals)
+    if err != nil {
+      log.Fatal(err)
+    }
+    log.Printf("insert: %+v\n", res)
   }
 
   log.Println("...main")
