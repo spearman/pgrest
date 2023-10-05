@@ -82,3 +82,8 @@ type ColVal struct {
   ColumnName string
   Value      string
 }
+
+type Delete struct {
+  TableName string
+  Cols      []string
+}

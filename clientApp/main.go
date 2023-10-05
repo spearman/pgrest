@@ -76,5 +76,13 @@ func main() {
     log.Printf("insert: %+v\n", res)
   }
 
+  {
+    res, err := client.Delete("foo", []string{"mycol3"})
+    if err != nil {
+      log.Fatal(err)
+    }
+    log.Printf("delete: %+v\n", res)
+  }
+
   log.Println("...main")
 }

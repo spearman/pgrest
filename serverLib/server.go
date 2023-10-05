@@ -159,30 +159,8 @@ func (server *PgServer) create(w http.ResponseWriter, r *http.Request) {
   if !unmarshal_body(w, r, &req_table) {
     return
   }
-  tx, err := server.conn.Begin(server.ctx)
-  if check_err(w, err, "beginning transaction") {
-    return
-  }
-  defer tx.Rollback(server.ctx)
-  res, err := tx.Exec(server.ctx,
-    fmt.Sprintf("CREATE TABLE \"%s\"()", req_table.TableName))
-  if err != nil {
-    err_string := err.Error()
-    result := pgrest.Result {
-      Error: &err_string,
-    }
-    send_json_err(w, result, "result")
-    return
-  }
-  err = tx.Commit(server.ctx)
-  if check_err(w, err, "committing transaction") {
-    return
-  }
-  res_string := res.String()
-  result := pgrest.Result {
-    Success: &res_string,
-  }
-  send_json(w, result, "result")
+  sql := fmt.Sprintf("CREATE TABLE \"%s\"()", req_table.TableName)
+  server.exec_sql(w, sql)
 }
 
 func (server *PgServer) createIndex(w http.ResponseWriter, r *http.Request) {
@@ -190,31 +168,9 @@ func (server *PgServer) createIndex(w http.ResponseWriter, r *http.Request) {
   if !unmarshal_body(w, r, &cre_idx) {
     return
   }
-  tx, err := server.conn.Begin(server.ctx)
-  if check_err(w, err, "beginning transaction") {
-    return
-  }
-  defer tx.Rollback(server.ctx)
-  res, err := tx.Exec(server.ctx,
-    fmt.Sprintf("CREATE INDEX \"%s\" ON \"%s\" (\"%s\")", cre_idx.IndexName,
-      cre_idx.TableName, cre_idx.ColumnName))
-  if err != nil {
-    err_string := err.Error()
-    result := pgrest.Result {
-      Error: &err_string,
-    }
-    send_json_err(w, result, "result")
-    return
-  }
-  err = tx.Commit(server.ctx)
-  if check_err(w, err, "committing transaction") {
-    return
-  }
-  res_string := res.String()
-  result := pgrest.Result {
-    Success: &res_string,
-  }
-  send_json(w, result, "result")
+  sql := fmt.Sprintf("CREATE INDEX \"%s\" ON \"%s\" (\"%s\")", cre_idx.IndexName,
+    cre_idx.TableName, cre_idx.ColumnName)
+  server.exec_sql(w, sql)
 }
 
 func (server *PgServer) read(w http.ResponseWriter, r *http.Request) {
@@ -226,11 +182,6 @@ func (server *PgServer) insert(w http.ResponseWriter, r *http.Request) {
   if !unmarshal_body(w, r, &insert) {
     return
   }
-  tx, err := server.conn.Begin(server.ctx)
-  if check_err(w, err, "beginning transaction") {
-    return
-  }
-  defer tx.Rollback(server.ctx)
   var cols []string
   var vals []string
   for _, col_val := range insert.Values {
@@ -239,26 +190,9 @@ func (server *PgServer) insert(w http.ResponseWriter, r *http.Request) {
   }
   cols_string := strings.Join(cols, ",")
   vals_string := strings.Join(vals, ",")
-  res, err := tx.Exec(server.ctx,
-    fmt.Sprintf("INSERT INTO \"%s\" (%s) VALUES (%s)", insert.TableName,
-      cols_string, vals_string))
-  if err != nil {
-    err_string := err.Error()
-    result := pgrest.Result {
-      Error: &err_string,
-    }
-    send_json_err(w, result, "result")
-    return
-  }
-  err = tx.Commit(server.ctx)
-  if check_err(w, err, "committing transaction") {
-    return
-  }
-  res_string := res.String()
-  result := pgrest.Result {
-    Success: &res_string,
-  }
-  send_json(w, result, "result")
+  sql := fmt.Sprintf("INSERT INTO \"%s\" (%s) VALUES (%s)", insert.TableName,
+    cols_string, vals_string)
+  server.exec_sql(w, sql)
 }
 
 func (server *PgServer) upsert(w http.ResponseWriter, r *http.Request) {
@@ -266,7 +200,18 @@ func (server *PgServer) upsert(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *PgServer) delete(w http.ResponseWriter, r *http.Request) {
-  log.Fatalln("TODO: delete")
+  var delete pgrest.Delete
+  if !unmarshal_body(w, r, &delete) {
+    return
+  }
+  var cols []string
+  for _, col := range delete.Cols {
+    cols = append(cols, "\"" + col + "\"")
+  }
+  cols_string := strings.Join(cols, ",")
+  sql := fmt.Sprintf("ALTER TABLE \"%s\" DROP COLUMN %s", delete.TableName,
+    cols_string)
+  server.exec_sql(w, sql)
 }
 
 func (server *PgServer) priv(w http.ResponseWriter, r *http.Request) {
@@ -291,6 +236,34 @@ func (server *PgServer) du(w http.ResponseWriter, r *http.Request) {
 
 func (server *PgServer) add(w http.ResponseWriter, r *http.Request) {
   log.Fatalln("TODO: add")
+}
+
+// returns false on error
+func (server *PgServer) exec_sql(w http.ResponseWriter, sql string) bool {
+  tx, err := server.conn.Begin(server.ctx)
+  if check_err(w, err, "beginning transaction") {
+    return false
+  }
+  defer tx.Rollback(server.ctx)
+  res, err := tx.Exec(server.ctx, sql)
+  if err != nil {
+    err_string := err.Error()
+    result := pgrest.Result {
+      Error: &err_string,
+    }
+    send_json_err(w, result, "result")
+    return false
+  }
+  err = tx.Commit(server.ctx)
+  if check_err(w, err, "committing transaction") {
+    return false
+  }
+  res_string := res.String()
+  result := pgrest.Result {
+    Success: &res_string,
+  }
+  send_json(w, result, "result")
+  return true
 }
 
 // returns true if error
