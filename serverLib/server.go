@@ -98,20 +98,14 @@ func (server *PgServer) df(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *PgServer) d(w http.ResponseWriter, r *http.Request) {
-  body, err := ioutil.ReadAll(r.Body)
-  if check_err(w, err, "reading request body") {
-    return
-  }
-  defer r.Body.Close()
   var req_table pgrest.ReqTable
-  err = json.Unmarshal(body, &req_table)
-  if check_err(w, err, "unmarshaling table req") {
+  if !unmarshal_body(w, r, &req_table) {
     return
   }
   var columns []*pgrest.Column
   query := fmt.Sprintf("SELECT column_name, data_type, collation_name, is_nullable, column_default FROM information_schema.columns WHERE table_name = '%s'",
     req_table.TableName)
-  err = pgxscan.Select(server.ctx, server.conn, &columns, query)
+  err := pgxscan.Select(server.ctx, server.conn, &columns, query)
   if check_err(w, err, "getting columns") {
     return
   }
@@ -119,20 +113,14 @@ func (server *PgServer) d(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *PgServer) dc(w http.ResponseWriter, r *http.Request) {
-  body, err := ioutil.ReadAll(r.Body)
-  if check_err(w, err, "reading request body") {
-    return
-  }
-  defer r.Body.Close()
   var req_col pgrest.ReqColumn
-  err = json.Unmarshal(body, &req_col)
-  if check_err(w, err, "unmarshaling table req") {
+  if !unmarshal_body(w, r, &req_col) {
     return
   }
   var data_type []*pgrest.DataType
   query := fmt.Sprintf("SELECT data_type FROM information_schema.columns WHERE table_name = '%s' AND column_name = '%s'",
     req_col.TableName, req_col.ColumnName)
-  err = pgxscan.Select(server.ctx, server.conn, &data_type, query)
+  err := pgxscan.Select(server.ctx, server.conn, &data_type, query)
   if check_err(w, err, "getting column data type") {
     return
   }
@@ -152,20 +140,14 @@ func (server *PgServer) dc(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *PgServer) idx(w http.ResponseWriter, r *http.Request) {
-  body, err := ioutil.ReadAll(r.Body)
-  if check_err(w, err, "reading request body") {
-    return
-  }
-  defer r.Body.Close()
   var req_table pgrest.ReqTable
-  err = json.Unmarshal(body, &req_table)
-  if check_err(w, err, "unmarshaling table req") {
+  if !unmarshal_body(w, r, &req_table) {
     return
   }
   var indexes []*pgrest.Index
   query := fmt.Sprintf("SELECT * FROM pg_indexes WHERE tablename = '%s'",
     req_table.TableName)
-  err = pgxscan.Select(server.ctx, server.conn, &indexes, query)
+  err := pgxscan.Select(server.ctx, server.conn, &indexes, query)
   if check_err(w, err, "getting indexes") {
     return
   }
@@ -173,14 +155,8 @@ func (server *PgServer) idx(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *PgServer) create(w http.ResponseWriter, r *http.Request) {
-  body, err := ioutil.ReadAll(r.Body)
-  if check_err(w, err, "reading request body") {
-    return
-  }
-  defer r.Body.Close()
   var req_table pgrest.ReqTable
-  err = json.Unmarshal(body, &req_table)
-  if check_err(w, err, "unmarshaling table req") {
+  if !unmarshal_body(w, r, &req_table) {
     return
   }
   tx, err := server.conn.Begin(server.ctx)
@@ -210,14 +186,8 @@ func (server *PgServer) create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *PgServer) createIndex(w http.ResponseWriter, r *http.Request) {
-  body, err := ioutil.ReadAll(r.Body)
-  if check_err(w, err, "reading request body") {
-    return
-  }
-  defer r.Body.Close()
   var cre_idx pgrest.CreateIndex
-  err = json.Unmarshal(body, &cre_idx)
-  if check_err(w, err, "unmarshaling create index req") {
+  if !unmarshal_body(w, r, &cre_idx) {
     return
   }
   tx, err := server.conn.Begin(server.ctx)
@@ -252,14 +222,8 @@ func (server *PgServer) read(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *PgServer) insert(w http.ResponseWriter, r *http.Request) {
-  body, err := ioutil.ReadAll(r.Body)
-  if check_err(w, err, "reading request body") {
-    return
-  }
-  defer r.Body.Close()
   var insert pgrest.Insert
-  err = json.Unmarshal(body, &insert)
-  if check_err(w, err, "unmarshaling insert") {
+  if !unmarshal_body(w, r, &insert) {
     return
   }
   tx, err := server.conn.Begin(server.ctx)
@@ -329,6 +293,7 @@ func (server *PgServer) add(w http.ResponseWriter, r *http.Request) {
   log.Fatalln("TODO: add")
 }
 
+// returns true if error
 func check_err(w http.ResponseWriter, err error, msg string) bool {
   if err != nil {
     log.Printf("error %s: %+v\n", msg, err)
@@ -338,6 +303,20 @@ func check_err(w http.ResponseWriter, err error, msg string) bool {
   } else {
     return false
   }
+}
+
+// returns false if failed
+func unmarshal_body(w http.ResponseWriter, r *http.Request, t interface{}) bool {
+  body, err := ioutil.ReadAll(r.Body)
+  if check_err(w, err, "reading request body") {
+    return false
+  }
+  defer r.Body.Close()
+  err = json.Unmarshal(body, t)
+  if check_err(w, err, "unmarshaling") {
+    return false
+  }
+  return true
 }
 
 func send_json(w http.ResponseWriter, v interface{}, name string) {
