@@ -446,3 +446,31 @@ func (client *Client) Own(table_name string, new_owner string) (
   }
   return &result, err
 }
+
+func (client *Client) Du() ([]pgrest.User, error) {
+  resp, err := client.client.Get(client.url + "/du")
+  if err != nil {
+    log.Println("error sending request:", err)
+    return nil, err
+  }
+  log.Printf("resp: %+v\n", resp)
+  defer resp.Body.Close()
+  body, err := ioutil.ReadAll(resp.Body)
+  if err != nil {
+    log.Println("error reading response:", err)
+    return nil, err
+  }
+  if resp.StatusCode != 200 {
+    err_string := fmt.Sprintf("error http status code %d: %s", resp.StatusCode,
+      string(body))
+    err = errors.New(err_string)
+    return nil, err
+  }
+  var users []pgrest.User
+  err = json.Unmarshal(body, &users)
+  if err != nil {
+    log.Println("error converting json to users:", err)
+    return nil, err
+  }
+  return users, err
+}

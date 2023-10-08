@@ -242,7 +242,13 @@ func (server *PgServer) own(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *PgServer) du(w http.ResponseWriter, r *http.Request) {
-  log.Fatalln("TODO: du")
+  var users []*pgrest.User
+  err := pgxscan.Select(server.ctx, server.conn, &users,
+    "SELECT usename FROM pg_user")
+  if check_err(w, err, "getting users") {
+    return
+  }
+  send_json(w, users, "users")
 }
 
 func (server *PgServer) add(w http.ResponseWriter, r *http.Request) {

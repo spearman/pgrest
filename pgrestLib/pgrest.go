@@ -34,6 +34,10 @@ type DataType struct {
   Data_type pgtype.Text
 }
 
+type User struct {
+  Usename pgtype.Text
+}
+
 type Result struct {
   Success *string
   Error   *string

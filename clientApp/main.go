@@ -100,5 +100,11 @@ func main() {
     log.Printf("own: %+v\n", res)
   }
 
+  users, err := client.Du()
+  if err != nil {
+    log.Println(err)
+  }
+  log.Printf("du: %+v\n", users)
+
   log.Println("...main")
 }
