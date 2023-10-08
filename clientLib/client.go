@@ -2,6 +2,8 @@ package client
 
 import (
   "bytes"
+  "errors"
+  "fmt"
   "io/ioutil"
   "log"
   "net/http"
@@ -32,9 +34,15 @@ func (client *Client) Dt() ([]pgrest.Table, error) {
     log.Println("error reading response:", err)
     return nil, err
   }
+  if resp.StatusCode != 200 {
+    err_string := fmt.Sprintf("error http status code %d: %s", resp.StatusCode,
+      string(body))
+    err = errors.New(err_string)
+    return nil, err
+  }
   var tables []pgrest.Table
   err = json.Unmarshal(body, &tables)
-  if err!= nil {
+  if err != nil {
     log.Println("error converting json to tables:", err)
     return nil, err
   }
@@ -54,9 +62,15 @@ func (client *Client) Dn() ([]pgrest.Schema, error) {
     log.Println("error reading response:", err)
     return nil, err
   }
+  if resp.StatusCode != 200 {
+    err_string := fmt.Sprintf("error http status code %d: %s", resp.StatusCode,
+      string(body))
+    err = errors.New(err_string)
+    return nil, err
+  }
   var schemas []pgrest.Schema
   err = json.Unmarshal(body, &schemas)
-  if err!= nil {
+  if err != nil {
     log.Println("error converting json to schemas:", err)
     return nil, err
   }
@@ -76,9 +90,15 @@ func (client *Client) Df() ([]pgrest.Function, error) {
     log.Println("error reading response:", err)
     return nil, err
   }
+  if resp.StatusCode != 200 {
+    err_string := fmt.Sprintf("error http status code %d: %s", resp.StatusCode,
+      string(body))
+    err = errors.New(err_string)
+    return nil, err
+  }
   var functions []pgrest.Function
   err = json.Unmarshal(body, &functions)
-  if err!= nil {
+  if err != nil {
     log.Println("error converting json to functions:", err)
     return nil, err
   }
@@ -110,16 +130,24 @@ func (client *Client) D(table_name string) ([]pgrest.Column, error) {
     log.Println("error reading response:", err)
     return nil, err
   }
+  if resp.StatusCode != 200 {
+    err_string := fmt.Sprintf("error http status code %d: %s", resp.StatusCode,
+      string(body))
+    err = errors.New(err_string)
+    return nil, err
+  }
   var columns []pgrest.Column
   err = json.Unmarshal(body, &columns)
-  if err!= nil {
+  if err != nil {
     log.Println("error converting json to columns:", err)
     return nil, err
   }
   return columns, err
 }
 
-func (client *Client) Dc(table_name string, column_name string) (*pgrest.DataType, error) {
+func (client *Client) Dc(table_name string, column_name string) (
+  *pgrest.DataType, error,
+) {
   req_col := pgrest.ReqColumn { TableName: table_name, ColumnName: column_name }
   body_json, err := json.Marshal(req_col)
   if err != nil {
@@ -144,9 +172,15 @@ func (client *Client) Dc(table_name string, column_name string) (*pgrest.DataTyp
     log.Println("error reading response:", err)
     return nil, err
   }
+  if resp.StatusCode != 200 {
+    err_string := fmt.Sprintf("error http status code %d: %s", resp.StatusCode,
+      string(body))
+    err = errors.New(err_string)
+    return nil, err
+  }
   var data_type pgrest.DataType
   err = json.Unmarshal(body, &data_type)
-  if err!= nil {
+  if err != nil {
     log.Println("error converting json to data type:", err)
     return nil, err
   }
@@ -178,9 +212,15 @@ func (client *Client) Idx(table_name string) ([]pgrest.Index, error) {
     log.Println("error reading response:", err)
     return nil, err
   }
+  if resp.StatusCode != 200 {
+    err_string := fmt.Sprintf("error http status code %d: %s", resp.StatusCode,
+      string(body))
+    err = errors.New(err_string)
+    return nil, err
+  }
   var indexes []pgrest.Index
   err = json.Unmarshal(body, &indexes)
-  if err!= nil {
+  if err != nil {
     log.Println("error converting json to indexes:", err)
     return nil, err
   }
@@ -207,9 +247,15 @@ func (client *Client) Create(table_name string) (*pgrest.Result, error) {
     log.Println("error reading response:", err)
     return nil, err
   }
+  if resp.StatusCode != 200 {
+    err_string := fmt.Sprintf("error http status code %d: %s", resp.StatusCode,
+      string(body))
+    err = errors.New(err_string)
+    return nil, err
+  }
   var result pgrest.Result
   err = json.Unmarshal(body, &result)
-  if err!= nil {
+  if err != nil {
     log.Println("error converting json to result:", err)
     return nil, err
   }
@@ -240,9 +286,15 @@ func (client *Client) CreateIndex(
     log.Println("error reading response:", err)
     return nil, err
   }
+  if resp.StatusCode != 200 {
+    err_string := fmt.Sprintf("error http status code %d: %s", resp.StatusCode,
+      string(body))
+    err = errors.New(err_string)
+    return nil, err
+  }
   var result pgrest.Result
   err = json.Unmarshal(body, &result)
-  if err!= nil {
+  if err != nil {
     log.Println("error converting json to result:", err)
     return nil, err
   }
@@ -273,9 +325,15 @@ func (client *Client) Insert(
     log.Println("error reading response:", err)
     return nil, err
   }
+  if resp.StatusCode != 200 {
+    err_string := fmt.Sprintf("error http status code %d: %s", resp.StatusCode,
+      string(body))
+    err = errors.New(err_string)
+    return nil, err
+  }
   var result pgrest.Result
   err = json.Unmarshal(body, &result)
-  if err!= nil {
+  if err != nil {
     log.Println("error converting json to result:", err)
     return nil, err
   }
@@ -306,9 +364,83 @@ func (client *Client) Delete(table_name string, columns []string) (
     log.Println("error reading response:", err)
     return nil, err
   }
+  if resp.StatusCode != 200 {
+    err_string := fmt.Sprintf("error http status code %d: %s", resp.StatusCode,
+      string(body))
+    err = errors.New(err_string)
+    return nil, err
+  }
   var result pgrest.Result
   err = json.Unmarshal(body, &result)
-  if err!= nil {
+  if err != nil {
+    log.Println("error converting json to result:", err)
+    return nil, err
+  }
+  return &result, err
+}
+
+func (client *Client) ExecSql(stmt string) (*pgrest.Result, error) {
+  req_body := bytes.NewReader([]byte(stmt))
+  resp, err := http.Post(client.url + "/execSql", "", req_body)
+  if err != nil {
+    log.Println("error sending request:", err)
+    return nil, err
+  }
+  log.Printf("resp: %+v\n", resp)
+  defer resp.Body.Close()
+  body, err := ioutil.ReadAll(resp.Body)
+  if err != nil {
+    log.Println("error reading response:", err)
+    return nil, err
+  }
+  if resp.StatusCode != 200 {
+    err_string := fmt.Sprintf("error http status code %d: %s", resp.StatusCode,
+      string(body))
+    err = errors.New(err_string)
+    return nil, err
+  }
+  var result pgrest.Result
+  err = json.Unmarshal(body, &result)
+  if err != nil {
+    log.Println("error converting json to result:", err)
+    return nil, err
+  }
+  return &result, err
+}
+
+func (client *Client) Own(table_name string, new_owner string) (
+  *pgrest.Result, error,
+) {
+  own := pgrest.Own {
+    TableName: table_name, Owner: new_owner,
+  }
+  body_json, err := json.Marshal(own)
+  if err != nil {
+    log.Println("error marshaling body:", err)
+    return nil, err
+  }
+  req_body := bytes.NewReader(body_json)
+  resp, err := http.Post(client.url + "/own", "", req_body)
+  if err != nil {
+    log.Println("error sending request:", err)
+    return nil, err
+  }
+  log.Printf("resp: %+v\n", resp)
+  defer resp.Body.Close()
+  body, err := ioutil.ReadAll(resp.Body)
+  if err != nil {
+    log.Println("error reading response:", err)
+    return nil, err
+  }
+  if resp.StatusCode != 200 {
+    err_string := fmt.Sprintf("error http status code %d: %s", resp.StatusCode,
+      string(body))
+    err = errors.New(err_string)
+    return nil, err
+  }
+  var result pgrest.Result
+  err = json.Unmarshal(body, &result)
+  if err != nil {
     log.Println("error converting json to result:", err)
     return nil, err
   }

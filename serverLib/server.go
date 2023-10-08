@@ -159,8 +159,8 @@ func (server *PgServer) create(w http.ResponseWriter, r *http.Request) {
   if !unmarshal_body(w, r, &req_table) {
     return
   }
-  sql := fmt.Sprintf("CREATE TABLE \"%s\"()", req_table.TableName)
-  server.exec_sql(w, sql)
+  stmt := fmt.Sprintf("CREATE TABLE \"%s\"()", req_table.TableName)
+  server.exec_stmt(w, stmt)
 }
 
 func (server *PgServer) createIndex(w http.ResponseWriter, r *http.Request) {
@@ -168,9 +168,9 @@ func (server *PgServer) createIndex(w http.ResponseWriter, r *http.Request) {
   if !unmarshal_body(w, r, &cre_idx) {
     return
   }
-  sql := fmt.Sprintf("CREATE INDEX \"%s\" ON \"%s\" (\"%s\")", cre_idx.IndexName,
+  stmt := fmt.Sprintf("CREATE INDEX \"%s\" ON \"%s\" (\"%s\")", cre_idx.IndexName,
     cre_idx.TableName, cre_idx.ColumnName)
-  server.exec_sql(w, sql)
+  server.exec_stmt(w, stmt)
 }
 
 func (server *PgServer) read(w http.ResponseWriter, r *http.Request) {
@@ -190,9 +190,9 @@ func (server *PgServer) insert(w http.ResponseWriter, r *http.Request) {
   }
   cols_string := strings.Join(cols, ",")
   vals_string := strings.Join(vals, ",")
-  sql := fmt.Sprintf("INSERT INTO \"%s\" (%s) VALUES (%s)", insert.TableName,
+  stmt := fmt.Sprintf("INSERT INTO \"%s\" (%s) VALUES (%s)", insert.TableName,
     cols_string, vals_string)
-  server.exec_sql(w, sql)
+  server.exec_stmt(w, stmt)
 }
 
 func (server *PgServer) upsert(w http.ResponseWriter, r *http.Request) {
@@ -209,9 +209,9 @@ func (server *PgServer) delete(w http.ResponseWriter, r *http.Request) {
     cols = append(cols, "\"" + col + "\"")
   }
   cols_string := strings.Join(cols, ",")
-  sql := fmt.Sprintf("ALTER TABLE \"%s\" DROP COLUMN %s", delete.TableName,
+  stmt := fmt.Sprintf("ALTER TABLE \"%s\" DROP COLUMN %s", delete.TableName,
     cols_string)
-  server.exec_sql(w, sql)
+  server.exec_stmt(w, stmt)
 }
 
 func (server *PgServer) priv(w http.ResponseWriter, r *http.Request) {
@@ -219,7 +219,12 @@ func (server *PgServer) priv(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *PgServer) execSql(w http.ResponseWriter, r *http.Request) {
-  log.Fatalln("TODO: execSql")
+  body, err := ioutil.ReadAll(r.Body)
+  if check_err(w, err, "reading request body") {
+    return
+  }
+  defer r.Body.Close()
+  server.exec_stmt(w, string(body))
 }
 
 func (server *PgServer) exec(w http.ResponseWriter, r *http.Request) {
@@ -227,7 +232,13 @@ func (server *PgServer) exec(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *PgServer) own(w http.ResponseWriter, r *http.Request) {
-  log.Fatalln("TODO: own")
+  var own pgrest.Own
+  if !unmarshal_body(w, r, &own) {
+    return
+  }
+  stmt := fmt.Sprintf("ALTER TABLE \"%s\" OWNER TO \"%s\"", own.TableName,
+    own.Owner)
+  server.exec_stmt(w, stmt)
 }
 
 func (server *PgServer) du(w http.ResponseWriter, r *http.Request) {
@@ -239,13 +250,13 @@ func (server *PgServer) add(w http.ResponseWriter, r *http.Request) {
 }
 
 // returns false on error
-func (server *PgServer) exec_sql(w http.ResponseWriter, sql string) bool {
+func (server *PgServer) exec_stmt(w http.ResponseWriter, stmt string) bool {
   tx, err := server.conn.Begin(server.ctx)
   if check_err(w, err, "beginning transaction") {
     return false
   }
   defer tx.Rollback(server.ctx)
-  res, err := tx.Exec(server.ctx, sql)
+  res, err := tx.Exec(server.ctx, stmt)
   if err != nil {
     err_string := err.Error()
     result := pgrest.Result {

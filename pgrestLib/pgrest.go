@@ -87,3 +87,8 @@ type Delete struct {
   TableName string
   Cols      []string
 }
+
+type Own struct {
+  TableName string
+  Owner     string
+}
