@@ -474,3 +474,39 @@ func (client *Client) Du() ([]pgrest.User, error) {
   }
   return users, err
 }
+
+func (client *Client) Add(user_name string) (*pgrest.Result, error) {
+  create_user := pgrest.CreateUser { UserName: user_name }
+  body_json, err := json.Marshal(create_user)
+  if err != nil {
+    log.Println("error marshaling body:", err)
+    return nil, err
+  }
+  req_body := bytes.NewReader(body_json)
+  resp, err := http.Post(client.url + "/add", "", req_body)
+  if err != nil {
+    log.Println("error sending request:", err)
+    return nil, err
+  }
+  log.Printf("resp: %+v\n", resp)
+  defer resp.Body.Close()
+  body, err := ioutil.ReadAll(resp.Body)
+  if err != nil {
+    log.Println("error reading response:", err)
+    return nil, err
+  }
+  if resp.StatusCode != 200 {
+    err_string := fmt.Sprintf("error http status code %d: %s", resp.StatusCode,
+      string(body))
+    err = errors.New(err_string)
+    return nil, err
+  }
+  var result pgrest.Result
+  err = json.Unmarshal(body, &result)
+  if err != nil {
+    log.Println("error converting json to result:", err)
+    return nil, err
+  }
+  return &result, err
+}
+

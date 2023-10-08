@@ -252,7 +252,12 @@ func (server *PgServer) du(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *PgServer) add(w http.ResponseWriter, r *http.Request) {
-  log.Fatalln("TODO: add")
+  var create_user pgrest.CreateUser
+  if !unmarshal_body(w, r, &create_user) {
+    return
+  }
+  stmt := fmt.Sprintf("CREATE USER \"%s\"", create_user.UserName)
+  server.exec_stmt(w, stmt)
 }
 
 // returns false on error

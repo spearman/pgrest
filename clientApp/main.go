@@ -106,5 +106,13 @@ func main() {
   }
   log.Printf("du: %+v\n", users)
 
+  {
+    res, err := client.Add("user_foo")
+    if err != nil {
+      log.Println(err)
+    }
+    log.Printf("add: %+v\n", res)
+  }
+
   log.Println("...main")
 }

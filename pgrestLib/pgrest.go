@@ -96,3 +96,7 @@ type Own struct {
   TableName string
   Owner     string
 }
+
+type CreateUser struct {
+  UserName string
+}
