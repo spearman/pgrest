@@ -68,7 +68,7 @@ func (server *PgServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *PgServer) dt(w http.ResponseWriter, r *http.Request) {
-  var tables []*pgrest.Table
+  tables := make([]*pgrest.Table, 0)
   err := pgxscan.Select(server.ctx, server.conn, &tables,
     "SELECT * FROM pg_catalog.pg_tables where schemaname = 'public'")
   if check_err(w, err, "getting tables") {
@@ -78,7 +78,7 @@ func (server *PgServer) dt(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *PgServer) dn(w http.ResponseWriter, r *http.Request) {
-  var schemas []*pgrest.Schema
+  schemas := make([]*pgrest.Schema, 0)
   err := pgxscan.Select(server.ctx, server.conn, &schemas,
     "SELECT * FROM information_schema.schemata")
   if check_err(w, err, "getting schemas") {
@@ -88,7 +88,7 @@ func (server *PgServer) dn(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *PgServer) df(w http.ResponseWriter, r *http.Request) {
-  var functions []*pgrest.Function
+  functions := make([]*pgrest.Function, 0)
   err := pgxscan.Select(server.ctx, server.conn, &functions,
     "SELECT specific_schema, specific_name, type_udt_name FROM information_schema.routines WHERE specific_schema = 'public'")
   if check_err(w, err, "getting functions") {
@@ -102,9 +102,14 @@ func (server *PgServer) d(w http.ResponseWriter, r *http.Request) {
   if !unmarshal_body(w, r, &req_table) {
     return
   }
-  var columns []*pgrest.Column
-  query := fmt.Sprintf("SELECT column_name, data_type, collation_name, is_nullable, column_default FROM information_schema.columns WHERE table_name = '%s'",
-    req_table.TableName)
+  columns := make([]*pgrest.Column, 0)
+  var query   string
+  if req_table.TableName == "all" {
+    query = "SELECT column_name, data_type, collation_name, is_nullable, column_default FROM information_schema.columns"
+  } else {
+    query = fmt.Sprintf("SELECT column_name, data_type, collation_name, is_nullable, column_default FROM information_schema.columns WHERE table_name = '%s'",
+      req_table.TableName)
+  }
   err := pgxscan.Select(server.ctx, server.conn, &columns, query)
   if check_err(w, err, "getting columns") {
     return
@@ -117,7 +122,7 @@ func (server *PgServer) dc(w http.ResponseWriter, r *http.Request) {
   if !unmarshal_body(w, r, &req_col) {
     return
   }
-  var data_type []*pgrest.DataType
+  data_type := make([]*pgrest.DataType, 0)
   query := fmt.Sprintf("SELECT data_type FROM information_schema.columns WHERE table_name = '%s' AND column_name = '%s'",
     req_col.TableName, req_col.ColumnName)
   err := pgxscan.Select(server.ctx, server.conn, &data_type, query)
@@ -144,7 +149,7 @@ func (server *PgServer) idx(w http.ResponseWriter, r *http.Request) {
   if !unmarshal_body(w, r, &req_table) {
     return
   }
-  var indexes []*pgrest.Index
+  indexes := make([]*pgrest.Index, 0)
   query := fmt.Sprintf("SELECT * FROM pg_indexes WHERE tablename = '%s'",
     req_table.TableName)
   err := pgxscan.Select(server.ctx, server.conn, &indexes, query)
@@ -242,7 +247,7 @@ func (server *PgServer) own(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *PgServer) du(w http.ResponseWriter, r *http.Request) {
-  var users []*pgrest.User
+  users := make([]*pgrest.User, 0)
   err := pgxscan.Select(server.ctx, server.conn, &users,
     "SELECT usename FROM pg_user")
   if check_err(w, err, "getting users") {
