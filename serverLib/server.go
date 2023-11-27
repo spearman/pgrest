@@ -179,7 +179,65 @@ func (server *PgServer) createIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *PgServer) read(w http.ResponseWriter, r *http.Request) {
-  log.Fatalln("TODO: read")
+  var read_cols pgrest.ReadColumns
+  if !unmarshal_body(w, r, &read_cols) {
+    return
+  }
+  var sel_cols string
+  ncols := len(read_cols.ColumnNames)
+  if ncols == 0 {
+    sel_cols = "*"
+  } else {
+    quoted_cols := make([]string, ncols)
+    for i, s := range read_cols.ColumnNames {
+      quoted_cols[i] = fmt.Sprintf("\"%s\"", s)
+    }
+    sel_cols = strings.Join(quoted_cols, ", ")
+  }
+  query := fmt.Sprintf("SELECT %s FROM \"%s\"", sel_cols, read_cols.TableName)
+  rows, err := server.conn.Query(server.ctx, query)
+  if check_err(w, err, "getting rows") {
+    return
+  }
+  defer rows.Close()
+  fields := rows.FieldDescriptions()
+  col_names := make([]string, len(fields))
+  for i, field := range fields {
+    col_names[i] = string(field.Name)
+  }
+  //log.Println("column names:", col_names)
+  var rows_jsonl string
+  for rows.Next() {
+    values := make([]interface{}, len(col_names))
+    for i := range values {
+      values[i] = new(interface{})
+    }
+    err := rows.Scan(values...)
+    if check_err(w, err, "scanning values") {
+      return
+    }
+    rows_jsonl += "{"
+    for i, value := range values {
+      if i != 0 {
+        rows_jsonl += ","
+      }
+      var val string
+      if str, ok := (*value.(*interface{})).(string); ok {
+        val = fmt.Sprintf("\"%s\"", str)
+      } else {
+        val = fmt.Sprintf("%v", *value.(*interface{}))
+      }
+      if val == "<nil>" {
+        val = "null"
+      }
+      rows_jsonl += fmt.Sprintf("\"%s\":%s", col_names[i], val)
+    }
+    rows_jsonl += ("}\n")
+  }
+  /*FIXME:debug*/
+  //send_json(w, rows_jsonl, "rows")
+  log.Printf("SENDING: %s\n", rows_jsonl)
+  fmt.Fprintln(w, rows_jsonl)
 }
 
 func (server *PgServer) insert(w http.ResponseWriter, r *http.Request) {

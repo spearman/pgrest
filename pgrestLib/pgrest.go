@@ -71,6 +71,11 @@ type ReqColumn struct {
   ColumnName string
 }
 
+type ReadColumns struct {
+  TableName   string
+  ColumnNames []string
+}
+
 type CreateIndex struct {
   TableName  string
   IndexName  string

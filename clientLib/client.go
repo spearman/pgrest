@@ -301,6 +301,40 @@ func (client *Client) CreateIndex(
   return &result, err
 }
 
+func (client *Client) Read(
+  table_name string, column_names []string,
+) (*string, error) {
+  read := pgrest.ReadColumns {
+    TableName: table_name, ColumnNames: column_names,
+  }
+  body_json, err := json.Marshal(read)
+  if err != nil {
+    log.Println("error marshaling body:", err)
+    return nil, err
+  }
+  req_body := bytes.NewReader(body_json)
+  resp, err := http.Post(client.url + "/read", "", req_body)
+  if err != nil {
+    log.Println("error sending request:", err)
+    return nil, err
+  }
+  log.Printf("resp: %+v\n", resp)
+  defer resp.Body.Close()
+  body, err := ioutil.ReadAll(resp.Body)
+  if err != nil {
+    log.Println("error reading response:", err)
+    return nil, err
+  }
+  if resp.StatusCode != 200 {
+    err_string := fmt.Sprintf("error http status code %d: %s", resp.StatusCode,
+      string(body))
+    err = errors.New(err_string)
+    return nil, err
+  }
+  rows_jsonl := string(body)
+  return &rows_jsonl, err
+}
+
 func (client *Client) Insert(
   table_name string, values []pgrest.ColVal,
 ) (*pgrest.Result, error) {

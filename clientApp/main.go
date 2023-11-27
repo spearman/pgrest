@@ -82,6 +82,14 @@ func main() {
     show("createIndex", res)
   }
 
+  log.Printf("read ---------------------------------------------------------")
+  {
+    res, err := client.Read("foo", []string{"mycol2", "mycol3"})
+    if err != nil {
+      log.Println(err)
+    }
+    log.Printf("read: %s\n", *res)
+  }
   log.Printf("insert ---------------------------------------------------------")
   {
     var col_vals []pgrest.ColVal
@@ -96,7 +104,7 @@ func main() {
 
   log.Printf("delete ---------------------------------------------------------")
   {
-    res, err := client.Delete("foo", []string{"mycol3"})
+    res, err := client.Delete("foo", []string{"mycol4"})
     if err != nil {
       log.Println(err)
     }
