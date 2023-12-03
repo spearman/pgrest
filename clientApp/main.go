@@ -101,6 +101,17 @@ func main() {
     }
     show("insert", res)
   }
+  log.Printf("upsert ---------------------------------------------------------")
+  {
+    var col_vals []pgrest.ColVal
+    col_vals = append(col_vals, pgrest.ColVal { ColumnName: "foo", Value: "2.2" })
+    col_vals = append(col_vals, pgrest.ColVal { ColumnName: "bar", Value: "3" })
+    res, err := client.Upsert("mytable", col_vals)
+    if err != nil {
+      log.Println(err)
+    }
+    show("upsert", res)
+  }
 
   log.Printf("delete ---------------------------------------------------------")
   {

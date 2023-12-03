@@ -12,7 +12,7 @@ import (
 import (
   "github.com/georgysavva/scany/v2/pgxscan"
   "github.com/jackc/pgx/v5"
-  //"github.com/jackc/pgx/v5/pgtype"
+  "github.com/jackc/pgx/v5/pgtype"
   json "github.com/goccy/go-json"
 )
 
@@ -23,6 +23,14 @@ import (
 type PgServer struct {
   conn  *pgx.Conn
   ctx   context.Context
+}
+
+type constraint_name struct {
+  Conname pgtype.Text
+}
+
+type column_name struct {
+  Column_name pgtype.Text
 }
 
 func MakeServer(connString string) (PgServer, error) {
@@ -42,7 +50,7 @@ func MakeServer(connString string) (PgServer, error) {
 
 func (server *PgServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   log.Printf("received: %+v\n", r)
-  log.Printf("URL: %v\n", r.URL)
+  log.Printf("URL: %v -----------------------------------------------\n", r.URL)
   switch r.URL.Path {
     case "/dt": server.dt(w, r)
     case "/dn": server.dn(w, r)
@@ -70,7 +78,7 @@ func (server *PgServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (server *PgServer) dt(w http.ResponseWriter, r *http.Request) {
   tables := make([]*pgrest.Table, 0)
   err := pgxscan.Select(server.ctx, server.conn, &tables,
-    "SELECT * FROM pg_catalog.pg_tables where schemaname = 'public'")
+    "SELECT * FROM pg_catalog.pg_tables WHERE schemaname = 'public'")
   if check_err(w, err, "getting tables") {
     return
   }
@@ -90,7 +98,8 @@ func (server *PgServer) dn(w http.ResponseWriter, r *http.Request) {
 func (server *PgServer) df(w http.ResponseWriter, r *http.Request) {
   functions := make([]*pgrest.Function, 0)
   err := pgxscan.Select(server.ctx, server.conn, &functions,
-    "SELECT specific_schema, specific_name, type_udt_name FROM information_schema.routines WHERE specific_schema = 'public'")
+    "SELECT specific_schema, specific_name, type_udt_name " +
+    "FROM information_schema.routines WHERE specific_schema = 'public'")
   if check_err(w, err, "getting functions") {
     return
   }
@@ -105,9 +114,12 @@ func (server *PgServer) d(w http.ResponseWriter, r *http.Request) {
   columns := make([]*pgrest.Column, 0)
   var query   string
   if req_table.TableName == "all" {
-    query = "SELECT column_name, data_type, collation_name, is_nullable, column_default FROM information_schema.columns"
+    query = "SELECT column_name, data_type, collation_name, is_nullable, column_default " +
+      "FROM information_schema.columns"
   } else {
-    query = fmt.Sprintf("SELECT column_name, data_type, collation_name, is_nullable, column_default FROM information_schema.columns WHERE table_name = '%s'",
+    query = fmt.Sprintf(
+      "SELECT column_name, data_type, collation_name, is_nullable, column_default " +
+      "FROM information_schema.columns WHERE table_name = '%s'",
       req_table.TableName)
   }
   err := pgxscan.Select(server.ctx, server.conn, &columns, query)
@@ -123,7 +135,8 @@ func (server *PgServer) dc(w http.ResponseWriter, r *http.Request) {
     return
   }
   data_type := make([]*pgrest.DataType, 0)
-  query := fmt.Sprintf("SELECT data_type FROM information_schema.columns WHERE table_name = '%s' AND column_name = '%s'",
+  query := fmt.Sprintf("SELECT data_type FROM information_schema.columns " +
+    "WHERE table_name = '%s' AND column_name = '%s'",
     req_col.TableName, req_col.ColumnName)
   err := pgxscan.Select(server.ctx, server.conn, &data_type, query)
   if check_err(w, err, "getting column data type") {
@@ -259,7 +272,57 @@ func (server *PgServer) insert(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *PgServer) upsert(w http.ResponseWriter, r *http.Request) {
-  log.Fatalln("TODO: upsert")
+  var insert pgrest.Insert
+  if !unmarshal_body(w, r, &insert) {
+    return
+  }
+  // get the primary key name
+  conname := make([]*constraint_name, 0)
+  query := fmt.Sprintf("SELECT conname FROM pg_constraint " +
+    "WHERE conrelid = '%s'::regclass AND confrelid = 0",
+    insert.TableName)
+  err := pgxscan.Select(server.ctx, server.conn, &conname, query)
+  if check_err(w, err, "getting primary key constraint name") {
+    return
+  }
+  if len(conname) == 0 {
+    errmsg := fmt.Sprintf("table '%s' has no primary key", insert.TableName)
+    result := pgrest.Result {
+      Error: &errmsg,
+    }
+    send_json_err(w, result, "result")
+    return
+  }
+  pkey_conname := conname[0].Conname.String;
+  keyname := make([]*column_name, 0)
+  query = fmt.Sprintf(
+    "SELECT column_name FROM information_schema.key_column_usage " +
+    "WHERE table_name = '%s' AND constraint_name = '%s'",
+    insert.TableName, pkey_conname)
+  err = pgxscan.Select(server.ctx, server.conn, &keyname, query)
+  if check_err(w, err, "getting primary key") {
+    return
+  }
+  // do the upsert
+  var cols []string
+  var vals []string
+  var updates []string
+  for _, col_val := range insert.Values {
+    col_string := "\"" + col_val.ColumnName + "\""
+    cols = append(cols, col_string)
+    vals = append(vals, col_val.Value)
+    updates = append(updates, fmt.Sprintf("%s = %s", col_string, col_val.Value))
+  }
+  cols_string := strings.Join(cols, ",")
+  vals_string := strings.Join(vals, ",")
+  update_string := strings.Join(updates, ",")
+  stmt := fmt.Sprintf("INSERT INTO \"%s\" (%s) VALUES (%s) " +
+    "ON CONFLICT (%s) DO UPDATE SET %s",
+    insert.TableName, cols_string, vals_string, keyname[0].Column_name.String,
+    update_string)
+  /*FIXME:debug*/
+  fmt.Printf("STMT: %s\n", stmt)
+  server.exec_stmt(w, stmt)
 }
 
 func (server *PgServer) delete(w http.ResponseWriter, r *http.Request) {
