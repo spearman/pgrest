@@ -303,7 +303,7 @@ func (client *Client) CreateIndex(
 
 func (client *Client) Read(
   table_name string, column_names []string,
-) (*string, error) {
+) (*pgrest.Result, error) {
   read := pgrest.ReadColumns {
     TableName: table_name, ColumnNames: column_names,
   }
@@ -331,8 +331,13 @@ func (client *Client) Read(
     err = errors.New(err_string)
     return nil, err
   }
-  rows_jsonl := string(body)
-  return &rows_jsonl, err
+  var result pgrest.Result
+  err = json.Unmarshal(body, &result)
+  if err != nil {
+    log.Println("error converting json to result:", err)
+    return nil, err
+  }
+  return &result, err
 }
 
 func (client *Client) Insert(

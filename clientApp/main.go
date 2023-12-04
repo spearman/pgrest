@@ -88,7 +88,7 @@ func main() {
     if err != nil {
       log.Println(err)
     }
-    log.Printf("read: %s\n", *res)
+    show("read", res)
   }
   log.Printf("insert ---------------------------------------------------------")
   {

@@ -213,44 +213,14 @@ func (server *PgServer) read(w http.ResponseWriter, r *http.Request) {
     return
   }
   defer rows.Close()
-  fields := rows.FieldDescriptions()
-  col_names := make([]string, len(fields))
-  for i, field := range fields {
-    col_names[i] = string(field.Name)
+  rows_jsonl, err := rows_to_jsonl(w, rows)
+  if check_err(w, err, "converting rows to json lines") {
+    return
   }
-  //log.Println("column names:", col_names)
-  var rows_jsonl string
-  for rows.Next() {
-    values := make([]interface{}, len(col_names))
-    for i := range values {
-      values[i] = new(interface{})
-    }
-    err := rows.Scan(values...)
-    if check_err(w, err, "scanning values") {
-      return
-    }
-    rows_jsonl += "{"
-    for i, value := range values {
-      if i != 0 {
-        rows_jsonl += ","
-      }
-      var val string
-      if str, ok := (*value.(*interface{})).(string); ok {
-        val = fmt.Sprintf("\"%s\"", str)
-      } else {
-        val = fmt.Sprintf("%v", *value.(*interface{}))
-      }
-      if val == "<nil>" {
-        val = "null"
-      }
-      rows_jsonl += fmt.Sprintf("\"%s\":%s", col_names[i], val)
-    }
-    rows_jsonl += ("}\n")
+  result := pgrest.Result {
+    Success: rows_jsonl,
   }
-  /*FIXME:debug*/
-  //send_json(w, rows_jsonl, "rows")
-  log.Printf("SENDING: %s\n", rows_jsonl)
-  fmt.Fprintln(w, rows_jsonl)
+  send_json(w, result, "result")
 }
 
 func (server *PgServer) insert(w http.ResponseWriter, r *http.Request) {
@@ -320,8 +290,6 @@ func (server *PgServer) upsert(w http.ResponseWriter, r *http.Request) {
     "ON CONFLICT (%s) DO UPDATE SET %s",
     insert.TableName, cols_string, vals_string, keyname[0].Column_name.String,
     update_string)
-  /*FIXME:debug*/
-  fmt.Printf("STMT: %s\n", stmt)
   server.exec_stmt(w, stmt)
 }
 
@@ -350,7 +318,24 @@ func (server *PgServer) execSql(w http.ResponseWriter, r *http.Request) {
     return
   }
   defer r.Body.Close()
-  server.exec_stmt(w, string(body))
+  sql := string(body)
+  if strings.HasPrefix(sql, "SELECT") {
+    rows, err := server.conn.Query(server.ctx, sql)
+    if check_err(w, err, "getting rows") {
+      return
+    }
+    defer rows.Close()
+    rows_jsonl, err := rows_to_jsonl(w, rows)
+    if check_err(w, err, "converting rows to json lines") {
+      return
+    }
+    result := pgrest.Result {
+      Success: rows_jsonl,
+    }
+    send_json(w, result, "result")
+  } else {
+    server.exec_stmt(w, sql)
+  }
 }
 
 func (server *PgServer) exec(w http.ResponseWriter, r *http.Request) {
@@ -454,4 +439,42 @@ func send_json_err(w http.ResponseWriter, v interface{}, name string) {
     return
   }
   http.Error(w, fmt.Sprintf("%s", string(s)), http.StatusInternalServerError)
+}
+
+func rows_to_jsonl(w http.ResponseWriter, rows pgx.Rows) (*string, error) {
+  fields := rows.FieldDescriptions()
+  col_names := make([]string, len(fields))
+  for i, field := range fields {
+    col_names[i] = string(field.Name)
+  }
+  //log.Println("column names:", col_names)
+  var rows_jsonl string
+  for rows.Next() {
+    values := make([]interface{}, len(col_names))
+    for i := range values {
+      values[i] = new(interface{})
+    }
+    err := rows.Scan(values...)
+    if check_err(w, err, "scanning values") {
+      return nil, err
+    }
+    rows_jsonl += "{"
+    for i, value := range values {
+      if i != 0 {
+        rows_jsonl += ","
+      }
+      var val string
+      if str, ok := (*value.(*interface{})).(string); ok {
+        val = fmt.Sprintf("\"%s\"", str)
+      } else {
+        val = fmt.Sprintf("%v", *value.(*interface{}))
+      }
+      if val == "<nil>" {
+        val = "null"
+      }
+      rows_jsonl += fmt.Sprintf("\"%s\":%s", col_names[i], val)
+    }
+    rows_jsonl += ("}\n")
+  }
+  return &rows_jsonl, nil
 }
