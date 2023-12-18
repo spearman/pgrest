@@ -1,0 +1,40 @@
+x dt
+x dn
+x df
+/ d
+  x all
+  - paging
+x idx
+x create
+x createIndex
+x dc
+/ read
+  x all rows
+  - paging
+x insert
+x upsert
+  x how to identify row?
+  x primary key
+x delete
+/ execSql
+  x return rows from select commands?
+    x specialize for select
+      - paging
+/ exec
+  - support other url schemes?
+  - upload file?
+  - paging
+x own
+x du
+/ add
+  - priveleges
+- priv
+  - by column: GRANT
+  - by row: ROW LEVEL SECURITY
+- schema
+  - schema qualifier for all requests
+- drop table?
+- clean up client.go
+- improved testing
+  - integration tests
+  - test multiple clients
