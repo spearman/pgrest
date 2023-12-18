@@ -7,6 +7,7 @@ import (
   "io/ioutil"
   "log"
   "net/http"
+  "net/url"
   pgrest "pgrest/pgrestLib"
   json "github.com/goccy/go-json"
 )
@@ -459,6 +460,48 @@ func (client *Client) Delete(table_name string, columns []string) (
 func (client *Client) ExecSql(stmt string) (*pgrest.Result, error) {
   req_body := bytes.NewReader([]byte(stmt))
   resp, err := http.Post(client.url + "/execSql", "", req_body)
+  if err != nil {
+    log.Println("error sending request:", err)
+    return nil, err
+  }
+  log.Printf("resp: %+v\n", resp)
+  defer resp.Body.Close()
+  body, err := ioutil.ReadAll(resp.Body)
+  if err != nil {
+    log.Println("error reading response:", err)
+    return nil, err
+  }
+  if resp.StatusCode != 200 {
+    err_string := fmt.Sprintf("error http status code %d: %s", resp.StatusCode,
+      string(body))
+    err = errors.New(err_string)
+    return nil, err
+  }
+  var result pgrest.Result
+  err = json.Unmarshal(body, &result)
+  if err != nil {
+    log.Println("error converting json to result:", err)
+    return nil, err
+  }
+  return &result, err
+}
+
+func (client *Client) Exec(url_string string) (*pgrest.Result, error) {
+  exec_url, err := url.Parse(url_string)
+  if err != nil {
+    log.Println("error parsing exec url string:", url_string)
+    return nil, err
+  }
+  exec := pgrest.Exec {
+    Url: *exec_url,
+  }
+  body_json, err := json.Marshal(exec)
+  if err != nil {
+    log.Println("error marshaling body:", err)
+    return nil, err
+  }
+  req_body := bytes.NewReader(body_json)
+  resp, err := http.Post(client.url + "/exec", "", req_body)
   if err != nil {
     log.Println("error sending request:", err)
     return nil, err

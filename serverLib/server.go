@@ -319,27 +319,39 @@ func (server *PgServer) execSql(w http.ResponseWriter, r *http.Request) {
   }
   defer r.Body.Close()
   sql := string(body)
-  if strings.HasPrefix(sql, "SELECT") {
-    rows, err := server.conn.Query(server.ctx, sql)
-    if check_err(w, err, "getting rows") {
-      return
-    }
-    defer rows.Close()
-    rows_jsonl, err := rows_to_jsonl(w, rows)
-    if check_err(w, err, "converting rows to json lines") {
-      return
-    }
-    result := pgrest.Result {
-      Success: rows_jsonl,
-    }
-    send_json(w, result, "result")
-  } else {
-    server.exec_stmt(w, sql)
-  }
+  server.exec_user_stmt(w, sql)
 }
 
 func (server *PgServer) exec(w http.ResponseWriter, r *http.Request) {
-  log.Fatalln("TODO: exec")
+  var exec pgrest.Exec
+  if !unmarshal_body(w, r, &exec) {
+    return
+  }
+  var sql string
+  // TODO: support other url schemes besides http?
+  resp, err := http.Get(exec.Url.String())
+  if err != nil {
+    // NOTE: not using the check_err function here because status is bad
+    // gateway instead of internal server error
+    http.Error(w,
+      fmt.Sprintf("Error getting exec URL (%v): %v", exec.Url, err),
+      http.StatusBadGateway)
+    return
+  }
+  defer resp.Body.Close()
+  body, err := ioutil.ReadAll(resp.Body)
+  if check_err(w, err, "reading get exec response body") {
+    return
+  }
+  if resp.StatusCode != 200 {
+    http.Error(w,
+      fmt.Sprintf("Exec URL (%v) response error %s: %s",
+        exec.Url, resp.Status, string(body)),
+      http.StatusBadGateway)
+    return
+  }
+  sql = string(body)
+  server.exec_user_stmt(w, sql)
 }
 
 func (server *PgServer) own(w http.ResponseWriter, r *http.Request) {
@@ -369,6 +381,26 @@ func (server *PgServer) add(w http.ResponseWriter, r *http.Request) {
   }
   stmt := fmt.Sprintf("CREATE USER \"%s\"", create_user.UserName)
   server.exec_stmt(w, stmt)
+}
+
+func (server *PgServer) exec_user_stmt(w http.ResponseWriter, stmt string) {
+  if strings.HasPrefix(stmt, "SELECT") {
+    rows, err := server.conn.Query(server.ctx, stmt)
+    if check_err(w, err, "getting rows") {
+      return
+    }
+    defer rows.Close()
+    rows_jsonl, err := rows_to_jsonl(w, rows)
+    if check_err(w, err, "converting rows to json lines") {
+      return
+    }
+    result := pgrest.Result {
+      Success: rows_jsonl,
+    }
+    send_json(w, result, "result")
+  } else {
+    server.exec_stmt(w, stmt)
+  }
 }
 
 // returns false on error

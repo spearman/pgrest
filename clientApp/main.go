@@ -2,6 +2,7 @@ package main
 
 import (
   "log"
+  "net/http"
   json "github.com/goccy/go-json"
 )
 
@@ -18,9 +19,21 @@ func show(label string, t interface{}) {
   log.Printf("%s: %s\n", label, s)
 }
 
+func serve_sql_stmt() {
+  fileserv := http.FileServer(http.Dir("."))
+  http.Handle("/", http.StripPrefix("/", fileserv))
+  err := http.ListenAndServe("localhost:8080", nil)
+  if err != nil {
+    log.Println(err)
+    panic(err)
+  }
+}
+
 func main() {
   log.Println("main...")
   client := client.MakeClient("http://127.0.0.1:12345")
+
+  go serve_sql_stmt()
 
   log.Printf("dt -------------------------------------------------------------")
   tables, err := client.Dt()
@@ -129,6 +142,15 @@ func main() {
       log.Println(err)
     }
     show("execSql", res)
+  }
+
+  log.Printf("exec -----------------------------------------------------------")
+  {
+    res, err := client.Exec("http://localhost:8080/test.sql")
+    if err != nil {
+      log.Println(err)
+    }
+    show("exec", res)
   }
 
   log.Printf("own ------------------------------------------------------------")

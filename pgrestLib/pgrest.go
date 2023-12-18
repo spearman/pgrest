@@ -3,6 +3,7 @@ package pgrest
 import (
   "fmt"
   //"log"
+  "net/url"
   "github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -104,4 +105,8 @@ type Own struct {
 
 type CreateUser struct {
   UserName string
+}
+
+type Exec struct {
+  Url url.URL
 }
